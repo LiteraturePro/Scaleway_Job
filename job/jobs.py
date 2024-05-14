@@ -3,6 +3,12 @@ import redis
 import json
 import logging
 from datetime import datetime, timedelta
+import requests
+import datetime
+import os
+from botocore.exceptions import NoCredentialsError
+import boto3
+from botocore.config import Config as boto3Config
 
 #  定义异常捕获
 sentry_sdk.init(
@@ -33,8 +39,64 @@ def calculate_elapsed_time(func):
     return wrapper
 
 @calculate_elapsed_time
-def job_acc_redis():
-    print(777)
+def job_sy_bing():
+    # 原始的图片地址
+    original_image_urls = [
+        "https://jscdn.cachefly.net/BingCdn/2024/01/01/2024-01-01_hd.jpg",
+        "https://jscdn.cachefly.net/BingCdn/2024/01/01/2024-01-01_hd_gaussian_20.jpg",
+        "https://jscdn.cachefly.net/BingCdn/2024/01/01/2024-01-01_hd_greyscale.jpg",
+        "https://jscdn.cachefly.net/BingCdn/2024/01/01/2024-01-01_hd_thumbnail_480_270.jpg",
+        "https://jscdn.cachefly.net/BingCdn/2024/01/01/2024-01-01_uhd.jpg"
+    ]
+    # -------------------------------Cloudflare对象储存服务配置----------------------------------------
+    # 空间名称：object
+    CF_ACCESS_KEY = 'a98f6ce3d22278a7931ca0343aede9f3'  
+    CF_SECRET_KEY = 'b4b9a5364f5d4e9b4d16ed8d75816360fae0e51175cab8e1f23f68452ab85c0e'  
+    CF_s3 = boto3.resource('s3',
+        endpoint_url = 'https://e680e4488fdd6d1b8c827cba29dc3410.r2.cloudflarestorage.com',
+        aws_access_key_id = CF_ACCESS_KEY,
+        aws_secret_access_key = CF_SECRET_KEY
+    )
+
+    # S3对象存储服务配置
+    s3_bucket_name = "oss"
+    s3_base_path = "BingCdn"
+    # 日期范围
+    #start_date = datetime.date(2024, 1, 1)
+    #end_date = datetime.date(2025, 1, 1)
+    start_date = datetime.date.today()
+    end_date = datetime.date.today()
+    # 构建待更新的图片地址
+    updated_image_urls = []
+    for date in (start_date + datetime.timedelta(days=n) for n in range((end_date - start_date).days + 1)):
+        for image_url in original_image_urls:
+            image_name = os.path.basename(image_url)
+            image_name = image_name.replace("2024-01-01", str(date))
+            image_path = os.path.join(s3_base_path, str(date.year), str(date.month).zfill(2), str(date.day).zfill(2), image_name)
+            #updated_image_urls.append("https://jscdn.cachefly.net/"+image_path)
+            updated_image_urls.append(("https://jscdn.cachefly.net/"+image_path, image_path))
+    # 请求待更新的图片地址并更新到S3对象存储服务
+    for image_url, image_path in updated_image_urls:
+        response = requests.head(image_url)
+        if response.status_code == 404:
+            original_url = image_url.replace("jscdn.cachefly.net/BingCdn/", "bing.mcloc.cn/img/")
+            response = requests.head(original_url)
+            if response.status_code == 200:
+                try:
+                    image_name = os.path.basename(image_path)
+                    response = requests.get(original_url)
+                    with open(image_name, 'wb') as f:
+                        f.write(response.content)
+                    s3_bucket = CF_s3.Bucket(s3_bucket_name)
+                    s3_bucket.upload_file(image_name, image_path)
+                    os.remove(image_name)
+                    print(f"Image {image_name} uploaded to S3")
+                except NoCredentialsError:
+                    print("Credentials not found.")
+            else:
+                print(f"Original image {original_url} not found.")
+        else:
+            print(f"Image {image_path} already exists.")
 
 @calculate_elapsed_time
 def job_test():
@@ -42,7 +104,7 @@ def job_test():
 
 def initialize():
     job_data = {
-        "job_acc_redis": {"last_run_time": None, "enable": 1, "max_num": 5, "actual_num": 0},
+        "job_sy_bing": {"last_run_time": None, "enable": 1, "max_num": 5, "actual_num": 0},
         "job_test": {"last_run_time": None, "enable": 1, "max_num": 10, "actual_num": 0}
     }
     for key, value in job_data.items():
