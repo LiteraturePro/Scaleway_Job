@@ -2,13 +2,11 @@ import sentry_sdk
 import redis
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 import requests
-import datetime
 import os
 from botocore.exceptions import NoCredentialsError
 import boto3
-from botocore.config import Config as boto3Config
 
 #  定义异常捕获
 sentry_sdk.init(

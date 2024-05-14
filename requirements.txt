@@ -1,3 +1,4 @@
 boto3
 sentry-sdk
 redis
+requests
