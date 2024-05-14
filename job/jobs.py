@@ -2,7 +2,7 @@ import sentry_sdk
 import redis
 import json
 import logging
-from datetime import datetime
+import datetime 
 import requests
 import os
 from botocore.exceptions import NoCredentialsError
@@ -28,9 +28,9 @@ redis_client = redis.Redis(
 
 def calculate_elapsed_time(func):
     def wrapper(*args, **kwargs):
-        start_time = datetime.now()
+        start_time = datetime.datetime.now()
         result = func(*args, **kwargs)
-        end_time = datetime.now()
+        end_time = datetime.datetime.now()
         elapsed_time = end_time - start_time
         logging.info(f"Job {func.__name__} finished in {elapsed_time.total_seconds()} seconds.")
         return result
@@ -127,7 +127,7 @@ if __name__ == '__main__':
                     job_func = globals()[job_name]
                     job_func()
                     job_info["actual_num"] += 1
-                    job_info["last_run_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    job_info["last_run_time"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     redis_client.hset("s-job", key, json.dumps(job_info))
                 else:
                     print(f"Error: Function {job_name} not found or not callable.")
