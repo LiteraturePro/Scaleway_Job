@@ -14,4 +14,4 @@ RUN apt update -y && apt install -y \
 # Install production dependencies.
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
-CMD python job.py
+CMD bash run.sh
